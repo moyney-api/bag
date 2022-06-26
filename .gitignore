@@ -1,0 +1,27 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+firebase-debug.log*
+firebase-debug.*.log*
+
+# Firebase cache
+.firebase/
+
+# Temporal unrelated stuff
+
+# Firebase stuff
+functions/src/firebase/admin-config.json
+
+# Compiled JavaScript files
+functions/lib
+functions/lib/**/*.js
+functions/lib/**/*.js.map
+
+# TypeScript v1 declaration files
+functions/typings/
+
+# Node.js dependency directory
+functions/node_modules/

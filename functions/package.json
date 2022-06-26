@@ -1,0 +1,40 @@
+{
+  "name": "functions",
+  "scripts": {
+    "lint": "eslint --ext .js,.ts .",
+    "build": "concurrently --kill-others \"tsc -w\" \"tsc-alias -w\"",
+    "build:once": "tsc && tsc-alias",
+    "serve": "firebase emulators:start --only functions",
+    "test": "tsc && tsc-alias && jest",
+    "deploy": "firebase deploy --only functions",
+    "deploy:rules": "cd ../../.firestore_rules && bash __build_rules.sh",
+    "logs": "firebase functions:log"
+  },
+  "engines": {
+    "node": "16"
+  },
+  "main": "lib/index.js",
+  "dependencies": {
+    "firebase-admin": "^10.0.2",
+    "firebase-functions": "^3.18.0",
+    "rxjs": "^7.5.5"
+
+  },
+  "devDependencies": {
+    "@types/jest": "^28.1.0",
+    "@types/supertest": "^2.0.12",
+    "@typescript-eslint/eslint-plugin": "^5.12.0",
+    "@typescript-eslint/parser": "^5.12.0",
+    "concurrently": "^7.2.2",
+    "eslint": "^8.9.0",
+    "eslint-config-google": "^0.14.0",
+    "eslint-plugin-import": "^2.25.4",
+    "firebase-functions-test": "^0.2.0",
+    "jest": "^28.1.0",
+    "supertest": "^6.2.3",
+    "ts-jest": "^28.0.4",
+    "tsc-alias": "^1.6.11",
+    "typescript": "^4.7.3"
+  },
+  "private": true
+}
