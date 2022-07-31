@@ -39,7 +39,7 @@ export class FirestoreMock {
     return jest.spyOn(this.fs, 'collection').mockImplementation((collection: string): any => {
       const dbCollection = (<any>this.db)[collection];
       return {
-        where: (prop: string, operator: '==', values: string[]) => ({
+        where: (prop: string, operator: 'in', values: string[]) => ({
           get: (): any => {
             return new Promise(
               (resolves) => resolves({

@@ -1,15 +1,13 @@
-import { concatMap, from, of, OperatorFunction, tap } from 'rxjs';
+import { concatMap, of, OperatorFunction } from 'rxjs';
 import { MoyFirestoreManager } from '~/firebase';
 import { Bag } from '../bag';
-import { BagData } from '../models';
 import { BagRule, RuleActions } from './models';
 
 abstract class RuleAction {
   protected limit: number = Infinity;
   protected limitUnit?: string;
 
-  constructor(limitCode: string, protected targetBag: Bag, protected parentBag: Bag, protected mfsm: MoyFirestoreManager) {
-    this.targetBag.shareDbManager(this.mfsm);
+  constructor(limitCode: string, protected target: string, protected parentBag: Bag, protected mfsm: MoyFirestoreManager) {
     if (limitCode) {
       const [limitQuantity, limitUnit] = limitCode.split('l:')[1].split(/(\D)/);
       this.limit = +limitQuantity || Infinity;
@@ -21,7 +19,10 @@ abstract class RuleAction {
 
   addToBatchAmountToPass(amountToPass: number, from?: string): void {
     if (amountToPass !== 0) {
-      this.mfsm.expressionToQueue(() => this.targetBag.setAmount(this.targetBag.amount + amountToPass, from));
+      this.mfsm.expressionToQueue(() => {
+        const targetBag = new Bag(this.mfsm.readDependency(this.target), this.mfsm);
+        targetBag.setAmount(targetBag.amount + amountToPass, from);
+      });
     }
   }
 }
@@ -50,7 +51,8 @@ class SendUpTo extends RuleAction {
     }
 
     return concatMap((leftover: number) => {
-      const constrainedLimit = this.limit - (this.targetBag.received[this.parentBag.uid] || 0);
+      const targetHasReceived = this.mfsm.readDependency(this.target).received[this.parentBag.uid] || 0;
+      const constrainedLimit = this.limit - targetHasReceived;
       const amountToPass = constrainedLimit > leftover ? leftover : constrainedLimit;
 
       this.addToBatchAmountToPass(amountToPass, this.parentBag.uid);
@@ -84,7 +86,8 @@ class TakeUpTo extends RuleAction {
     }
 
     return concatMap((leftover: number = 0) => {
-      const constrainedLimit = this.limit + (this.targetBag.received[this.parentBag.uid] || 0);
+      const targetHasReceived = this.mfsm.readDependency(this.target).received[this.parentBag.uid] || 0;
+      const constrainedLimit = this.limit + targetHasReceived;
       const amountToPass = constrainedLimit > leftover ? leftover : constrainedLimit;
 
       if (amountToPass > 0) {
@@ -97,22 +100,12 @@ class TakeUpTo extends RuleAction {
 }
 
 export class RuleParser {
-  private userBags: { [uid: string]: Bag } = {};
-
   constructor(private rules: BagRule[], private mfsm: MoyFirestoreManager, private parentBag: Bag) {}
 
   addBagInitToQueue(): RuleParser {
     const bagUids = this.rules.map(r => (r.match(/(?<=t:)(.+(?=\|)|(.+))/g) || '')[0]);
 
-    const bagInit = from(this.mfsm.listRef('uid', bagUids).get()).pipe(
-      tap(query => {
-        query.docs.forEach(
-          d => this.userBags[d.id] = new Bag({ ...<BagData>d.data(), uid: d.id })
-        );
-      }),
-    );
-
-    this.mfsm.expressionToQueue(bagInit);
+    this.mfsm.readToQueue('uid', bagUids);
 
     return this;
   }
@@ -126,10 +119,10 @@ export class RuleParser {
     const targetUid = targetCode.split('t:')[1];
 
     const Rule = this.ruleActionFromCode(actionCode);
-    return new Rule(limitCode, this.userBags[targetUid], this.parentBag, this.mfsm);
+    return new Rule(limitCode, targetUid, this.parentBag, this.mfsm);
   }
 
-  private ruleActionFromCode(actionCode: string): new (...args: [string, Bag, Bag, MoyFirestoreManager]) => RuleAction {
+  private ruleActionFromCode(actionCode: string): new (...args: [string, string, Bag, MoyFirestoreManager]) => RuleAction {
     switch(actionCode.split('a:')[1]) {
       case RuleActions.Send:
         return Send;

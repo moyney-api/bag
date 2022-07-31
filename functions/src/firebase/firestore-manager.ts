@@ -1,4 +1,4 @@
-import { concatMap, defer, expand, from, Observable, of, skipWhile, take, tap } from 'rxjs';
+import { combineLatest, concatMap, defaultIfEmpty, defer, expand, from, Observable, of, skipWhile, take, tap } from 'rxjs';
 import { admin } from './admin';
 
 function *obsIteratorFromDynamicArray({ dynamicArray }: { dynamicArray: Observable<any>[] }) {
@@ -17,23 +17,28 @@ export class MoyFirestoreManager {
   private fs = admin.firestore();
   private batch = this.fs.batch();
   private batchCount = 0;
+  private readDeps: { [byProp: string]: string[] } = {};
   private beforeCommitQueue: Observable<any>[] = [];
+  private dependenciesMap: { [documentId: string]: any } = {};
 
   constructor(private collection: string) {}
 
-  ref(id: string): admin.firestore.DocumentReference {
+  ref= (id: string): admin.firestore.DocumentReference => {
     return this.fs.doc(`${this.collection}/${id}`);
   }
 
-  listRef(prop: string, values: string[]) {
-    // gotta add to test mocks
-    return this.fs.collection(this.collection).where(prop, 'in', values);
+  readToQueue = (prop: string, values: string[]): void => {
+    this.readDeps[prop] = [...new Set([...(this.readDeps[prop] || []), ...values])];
+  }
+
+  readDependency = (uid: string): any => {
+    return this.dependenciesMap[uid];
   }
 
   commitChanges(): Observable<admin.firestore.WriteResult[]> {
     const obsIterator = obsIteratorFromDynamicArray({ dynamicArray: this.beforeCommitQueue });
 
-    return of(true).pipe(
+    return this.readsBeforeTriggeringCommit().pipe(
       expand(() => obsIterator.next().value || of('__END__')),
       skipWhile(v => v !== '__END__'),
       take(1),
@@ -65,5 +70,22 @@ export class MoyFirestoreManager {
     this.batch = this.fs.batch();
     this.batchCount = 0;
     this.beforeCommitQueue = [];
+    this.dependenciesMap = {};
+    this.readDeps = {};
+  }
+
+  private readsBeforeTriggeringCommit(): Observable<any> {
+    const populateDependencies = Object.keys(this.readDeps).map((property: string) => {
+      return from(this.fs.collection(this.collection).where(property, 'in', this.readDeps[property]).get())
+        .pipe(
+          tap(query => {
+            query.docs.forEach(
+              d => this.dependenciesMap[d.id] = { ...d.data(), uid: d.id }
+            );
+          }),
+        )
+    });
+
+    return combineLatest(populateDependencies).pipe(defaultIfEmpty(of(true)));
   }
 }

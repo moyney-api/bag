@@ -22,9 +22,8 @@ export class Bag implements BagData {
   };
 
   private _received: BagData['received'] = {};
-  private mfsm = new MoyFirestoreManager('bags');
 
-  constructor(bag: BagData) {
+  constructor(bag: BagData, private mfsm: MoyFirestoreManager = new MoyFirestoreManager('bags')) {
     this.uid = bag.uid;
     this.userUid = bag.userUid;
     this.name = bag.name;
@@ -35,10 +34,6 @@ export class Bag implements BagData {
     this.children = bag.children;
     this.belongsTo = bag.belongsTo;
     this.totalAmount = this.calcTotalAmount();
-  }
-
-  shareDbManager(dbManager: MoyFirestoreManager): void {
-    this.mfsm = dbManager;
   }
 
   commitChanges(): Observable<Bag> {
@@ -204,9 +199,8 @@ export class Bag implements BagData {
     const updateChildren = combineLatest(childrenValues).pipe(
       tap(snaps => snaps.forEach(snapshot => {
           const childBody = snapshot.data() as BagData;
-          const childBag = new Bag({ ...childBody, uid: snapshot.id });
+          const childBag = new Bag({ ...childBody, uid: snapshot.id }, this.mfsm);
           childBag.conversionRates = this.conversionRates;
-          childBag.shareDbManager(this.mfsm);
           childBag.changeCurrency(newCurrency, true);
         }),
       ),
