@@ -1,73 +1,9 @@
-import { combineLatest, concatMap, defer, expand, from, map, Observable, of, skipWhile, take, tap } from 'rxjs';
-import { admin } from '../firebase';
-import { Currency, priceOfFirstCurrInSecondCurr } from './currency';
-
-function *obsIteratorFromDynamicArray({ dynamicArray }: { dynamicArray: Observable<any>[] }) {
-  let index = 0;
-  let dynamicArrayHasValues = true;
-  let nextObs = dynamicArray[index++];
-
-  while(dynamicArrayHasValues) {
-    if (nextObs) yield nextObs;
-    else dynamicArrayHasValues = false;
-    nextObs = dynamicArray[index++];
-  }
-}
-
-export class MoyFirestoreManager {
-  private fs = admin.firestore();
-  private batch = this.fs.batch();
-  private batchCount = 0;
-  private beforeCommitQueue: Observable<any>[] = [];
-
-  constructor(private collection: string) {}
-
-  ref(id: string): admin.firestore.DocumentReference {
-    return this.fs.doc(`${this.collection}/${id}`);
-  }
-
-  commitChanges(): Observable<admin.firestore.WriteResult[]> {
-    const obsIterator = obsIteratorFromDynamicArray({ dynamicArray: this.beforeCommitQueue });
-
-    return of(true).pipe(
-      expand(() => obsIterator.next().value || of('__END__')),
-      skipWhile(v => v !== '__END__'),
-      take(1),
-      concatMap(() => from(this.batch.commit())),
-      tap(() => this.batch = this.fs.batch()),
-    );
-  }
-
-  expressionToQueue = (expression: Observable<any> | (() => any), sideEffect?: () => void): void => {
-    if (expression instanceof Observable<any>) {
-      this.beforeCommitQueue.push(sideEffect ? expression.pipe(tap({ next: sideEffect })) : expression);
-    } else {
-      const exprToObs = defer(() => of(expression()));
-      this.beforeCommitQueue.push(sideEffect ? exprToObs.pipe(tap({ next: sideEffect })) : exprToObs);
-    }
-  }
-
-  batchToQueue = (ref: admin.firestore.DocumentReference, body: { [key: string]: any }, sideEffect?: () => void): void => {
-    this.batchCount += 1;
-    if (this.batchCount >= 15) {
-      console.warn('Warning: Only ', 20 - this.batchCount, ' more batch operations allowed');
-    }
-
-    const baseExpression = () => this.batch.set(ref, body, { merge: true });
-    this.expressionToQueue(baseExpression, sideEffect);
-  }
-}
-
-export interface BagData {
-  uid: string;
-  userUid: string;
-  name: string;
-  currency: Currency;
-  amount: number;
-  rules: [];
-  children?: { [id: string]: Pick<BagData, 'name' | 'amount'> };
-  belongsTo?: string;
-}
+import { combineLatest, defer, from, map, Observable, of, tap } from 'rxjs';
+import { MoyFirestoreManager } from '../../firebase';
+import { Currency, priceOfFirstCurrInSecondCurr } from '../currency';
+import { BagData } from './models';
+import { BagRules } from './rules';
+import { RuleParser } from './rules/rules';
 
 export class Bag implements BagData {
   uid: string;
@@ -75,12 +11,17 @@ export class Bag implements BagData {
   name: string;
   currency: Currency;
   amount: number;
-  rules: [];
+  rules: BagRules /*Rules*/ = {};
   totalAmount: number;
   children?: BagData['children'];
   belongsTo?: string;
   conversionRates: { [currency: string]: number } = {};
 
+  get received(): BagData['received'] {
+    return this._received;
+  };
+
+  private _received: BagData['received'] = {};
   private mfsm = new MoyFirestoreManager('bags');
 
   constructor(bag: BagData) {
@@ -89,7 +30,8 @@ export class Bag implements BagData {
     this.name = bag.name;
     this.currency = bag.currency;
     this.amount = bag.amount;
-    this.rules = bag.rules;
+    this.rules = bag.rules || {};
+    this._received = bag.received || {};
     this.children = bag.children;
     this.belongsTo = bag.belongsTo;
     this.totalAmount = this.calcTotalAmount();
@@ -137,22 +79,35 @@ export class Bag implements BagData {
     return this;
   }
 
-  setAmount(newAmount: number): Bag {
+  setAmount(newAmount: number, from?: string): Bag {
+    const difference = newAmount - this.amount;
+    this.triggerRulesOnDifference(difference);
+
     if (this.belongsTo) {
       this.mfsm.batchToQueue(
         this.mfsm.ref(this.belongsTo),
-        { [`children.${this.uid}`]: { name: this.name, amount: newAmount + this.childrenSumAmount() } }
+        { [`children.${this.uid}`]: { name: this.name, amount: this.amount + difference + this.childrenSumAmount() } }
       );
     }
 
-    this.mfsm.batchToQueue(
-      this.mfsm.ref(this.uid),
-      { amount: newAmount },
-      () => {
-        this.amount = newAmount;
-        this.totalAmount = this.calcTotalAmount();
-      },
-    );
+    const awaitDiff = defer(() => {
+      const bagChanges: { [prop: string]: number } = { amount: this.amount + difference };
+
+      if (from) {
+        bagChanges[`received.${from}`] = (this.received[from] || 0) + difference;
+      }
+
+      return of(this.mfsm.batchToQueue(
+          this.mfsm.ref(this.uid),
+          bagChanges,
+          () => {
+            this.amount = this.amount + difference;
+            this.totalAmount = this.calcTotalAmount();
+          },
+        ));
+    });
+
+    this.mfsm.expressionToQueue(awaitDiff);
 
     return this;
   }
@@ -182,6 +137,47 @@ export class Bag implements BagData {
     );
 
     return this;
+  }
+
+  setRules(newRules: BagData['rules']): Bag {
+    this.mfsm.batchToQueue(
+      this.mfsm.ref(this.uid),
+      { rules: newRules },
+      () => { this.rules = newRules }
+    );
+
+    return this;
+  }
+
+  private triggerRulesOnDifference(difference: number): void {
+    const { oi, oo, oov } = this.rules;
+
+    if (difference > 0 && oi) {
+      const ruleParser = new RuleParser(oi, this.mfsm, this);
+      ruleParser.addBagInitToQueue();
+      const ruleExpression = defer(() => of(difference).pipe(
+        ...(ruleParser.parseRules() as []),
+        tap(left => this.amount -= (difference - left)),
+      ));
+
+      this.mfsm.expressionToQueue(ruleExpression);
+    }
+
+    if (difference < 0 && oo) {
+      const ruleParser = new RuleParser(oo, this.mfsm, this);
+      ruleParser.addBagInitToQueue();
+      const ruleExpression = defer(() => of(-1 * difference).pipe(
+        ...(ruleParser.parseRules() as []),
+        tap(left => this.amount -= (difference + left)),
+      ))
+
+      this.mfsm.expressionToQueue(ruleExpression);
+
+      if ((this.amount + difference) < 0 && oov) {
+        const ruleSteps = new RuleParser(oov, this.mfsm, this).addBagInitToQueue().parseRules() as [];
+        this.mfsm.expressionToQueue(of(difference).pipe(...ruleSteps));
+      }
+    }
   }
 
   private assignToParentBag(bagId: string): void {

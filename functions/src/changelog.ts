@@ -1,5 +1,18 @@
 export const changelog: Changelog = [
   {
+    version: '0.0.3',
+    changes: [
+      'Rules now implemented. Automatic rule triggers available',
+    ],
+    techChanges: [
+      'Tests now for every type of rule existing so far',
+    ],
+    knownIssues: [
+      'Firebase manager needs rethinking and rework',
+      'Rule logic and bag logic is flaky. Lots of rigidity and complexity',
+    ]
+  },
+  {
     version: '0.0.2',
     techChanges: [
       'Bag implementation with tests complete',
@@ -21,4 +34,8 @@ interface ChangelogChanges extends ChangelogVersion {
 interface ChangelogTechChanges extends ChangelogVersion {
   techChanges: string[];
 }
-export type Changelog = (ChangelogChanges | ChangelogTechChanges)[];
+interface ChangelogKnownIssues extends ChangelogVersion {
+  knownIssues: string[];
+}
+
+export type Changelog = (ChangelogChanges | ChangelogTechChanges | ChangelogKnownIssues)[];

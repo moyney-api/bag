@@ -12,6 +12,7 @@ export class FirestoreMock {
   constructor() {
     this.spyOnBatch();
     this.spyOnDoc();
+    this.spyOnCollection();
   }
 
   get(id: string): BagData {
@@ -22,13 +23,41 @@ export class FirestoreMock {
     this.db = this.deepCopy(FAKE_BAG_DB);
   }
 
-  spyOnDoc = (): jest.SpyInstance => {
+  spyOnCurrConverter = (options: { [conversion: string]: number }): jest.SpyInstance => {
+    return jest.spyOn(currencyExport, 'priceOfFirstCurrInSecondCurr').mockImplementation((oneOf: Currency, isWorth: Currency) => {
+      return of({ price: options[`${oneOf.toLowerCase()}/${isWorth.toLowerCase()}`], date: `${new Date()}`, from: oneOf, to: isWorth });
+    });
+  }
+
+  private spyOnDoc = (): jest.SpyInstance => {
     return jest.spyOn(this.fs, 'doc').mockImplementation((wholePath: string) => {
       return this.getObjectRerferenceForPath(wholePath, this.db);
     });
   }
 
-  spyOnBatch = (): jest.SpyInstance => {
+  private spyOnCollection = (): jest.SpyInstance => {
+    return jest.spyOn(this.fs, 'collection').mockImplementation((collection: string): any => {
+      const dbCollection = (<any>this.db)[collection];
+      return {
+        where: (prop: string, operator: '==', values: string[]) => ({
+          get: (): any => {
+            return new Promise(
+              (resolves) => resolves({
+                docs: Object.keys(dbCollection).reduce((results, uid: string) => {
+                  if (values.includes(dbCollection[uid][prop])) {
+                    results.push({ id: uid, data: () => this.deepCopy(dbCollection[uid]) });
+                  }
+                  return results;
+                }, [] as any[])
+              })
+            );
+          }
+        }),
+      }
+    });
+  }
+
+  private spyOnBatch = (): jest.SpyInstance => {
     return jest.spyOn(this.fs, 'batch').mockImplementation(() => {
       const batchInstance: any = {
         __changes: this.deepCopy(this.db),
@@ -57,12 +86,6 @@ export class FirestoreMock {
       };
 
       return batchInstance;
-    });
-  }
-
-  spyOnCurrConverter = (options: { [conversion: string]: number }): jest.SpyInstance => {
-    return jest.spyOn(currencyExport, 'priceOfFirstCurrInSecondCurr').mockImplementation((oneOf: Currency, isWorth: Currency) => {
-      return of({ price: options[`${oneOf.toLowerCase()}/${isWorth.toLowerCase()}`], date: `${new Date()}`, from: oneOf, to: isWorth });
     });
   }
 
