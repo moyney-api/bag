@@ -1,4 +1,4 @@
-import { combineLatest, concatMap, defaultIfEmpty, defer, expand, from, Observable, of, skipWhile, take, tap } from 'rxjs';
+import { concatMap, defer, expand, from, Observable, of, skipWhile, take, tap } from 'rxjs';
 import { admin } from './admin';
 
 function *obsIteratorFromDynamicArray({ dynamicArray }: { dynamicArray: Observable<any>[] }) {
@@ -16,29 +16,19 @@ function *obsIteratorFromDynamicArray({ dynamicArray }: { dynamicArray: Observab
 export class MoyFirestoreManager {
   private fs = admin.firestore();
   private batch = this.fs.batch();
-  private batchCount = 0;
-  private readDeps: { [byProp: string]: string[] } = {};
-  private beforeCommitQueue: Observable<any>[] = [];
-  private dependenciesMap: { [documentId: string]: any } = {};
+  private commitQueue: Observable<any>[] = [];
+  private readDocumentsMap: { [documentId: string]: any } = {};
 
   constructor(private collection: string) {}
 
-  ref= (id: string): admin.firestore.DocumentReference => {
-    return this.fs.doc(`${this.collection}/${id}`);
+  doc = (id: string) => {
+    return this.readDocumentsMap[id];
   }
 
-  readToQueue = (prop: string, values: string[]): void => {
-    this.readDeps[prop] = [...new Set([...(this.readDeps[prop] || []), ...values])];
-  }
+  commit = () => {
+    const obsIterator = obsIteratorFromDynamicArray({ dynamicArray: this.commitQueue });
 
-  readDependency = (uid: string): any => {
-    return this.dependenciesMap[uid];
-  }
-
-  commitChanges(): Observable<admin.firestore.WriteResult[]> {
-    const obsIterator = obsIteratorFromDynamicArray({ dynamicArray: this.beforeCommitQueue });
-
-    return this.readsBeforeTriggeringCommit().pipe(
+    return of(true).pipe(
       expand(() => obsIterator.next().value || of('__END__')),
       skipWhile(v => v !== '__END__'),
       take(1),
@@ -47,45 +37,40 @@ export class MoyFirestoreManager {
     );
   }
 
+  readToQueue = (prop: string, values: string[], sideEffect?: () => void): void => {
+    const baseExpression = from(
+      this.fs.collection(this.collection).where(prop, 'in', values).get()
+    ).pipe(
+      tap(query => query.docs.forEach(
+        d => this.readDocumentsMap[d.id] = { ...d.data(), uid: d.id }
+      ))
+    );
+
+    this.expressionToQueue(baseExpression, sideEffect);
+  }
+  
   expressionToQueue = (expression: Observable<any> | (() => any), sideEffect?: (any?: any) => void): void => {
     if (expression instanceof Observable) {
-      this.beforeCommitQueue.push(sideEffect ? expression.pipe(tap({ next: sideEffect })) : expression);
+      this.commitQueue.push(sideEffect ? expression.pipe(tap({ next: () => sideEffect() })) : expression);
     } else {
       const exprToObs = defer(() => of(expression()));
-      this.beforeCommitQueue.push(sideEffect ? exprToObs.pipe(tap({ next: sideEffect })) : exprToObs);
+      this.commitQueue.push(sideEffect ? exprToObs.pipe(tap({ next: () => sideEffect() })) : exprToObs);
     }
   }
 
-  batchToQueue = (ref: admin.firestore.DocumentReference, body: { [key: string]: any }, sideEffect?: () => void): void => {
-    this.batchCount += 1;
-    if (this.batchCount >= 15) {
-      console.warn('Warning: Only ', 20 - this.batchCount, ' more batch operations allowed');
-    }
-
+  batchToQueue = (documentId: string, body: { [key: string]: any }, sideEffect?: () => void): void => {
+    const ref = this.ref(documentId);
     const baseExpression = () => this.batch.set(ref, body, { merge: true });
     this.expressionToQueue(baseExpression, sideEffect);
   }
 
-  private reset(): void {
-    this.batch = this.fs.batch();
-    this.batchCount = 0;
-    this.beforeCommitQueue = [];
-    this.dependenciesMap = {};
-    this.readDeps = {};
+  private ref = (id: string): admin.firestore.DocumentReference => {
+    return this.fs.doc(`${this.collection}/${id}`);
   }
 
-  private readsBeforeTriggeringCommit(): Observable<any> {
-    const populateDependencies = Object.keys(this.readDeps).map((property: string) => {
-      return from(this.fs.collection(this.collection).where(property, 'in', this.readDeps[property]).get())
-        .pipe(
-          tap(query => {
-            query.docs.forEach(
-              d => this.dependenciesMap[d.id] = { ...d.data(), uid: d.id }
-            );
-          }),
-        )
-    });
-
-    return combineLatest(populateDependencies).pipe(defaultIfEmpty(of(true)));
+  private reset = (): void => {
+    this.batch = this.fs.batch();
+    this.commitQueue = [];
+    this.readDocumentsMap = {};
   }
 }

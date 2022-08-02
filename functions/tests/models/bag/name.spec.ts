@@ -3,7 +3,7 @@ import { Bag } from '../../../src/models/bag';
 import { FirestoreMock } from '../../__mocks/firestore.mock.spec';
 import { FAKE_BAG_DB } from '../../__mocks/mockDb';
 
-const firestoreMock = new FirestoreMock();
+const firestoreMock = new FirestoreMock(FAKE_BAG_DB);
 
 beforeEach(() => firestoreMock.reset());
 
@@ -16,7 +16,7 @@ describe('name', () => {
 
     expect(bag.name).toBe(parent_changes_test.name);
 
-    const nameUpdate = bag.changeName(newName).commitChanges();
+    const nameUpdate = bag.changeName(newName).save();
     await lastValueFrom(nameUpdate);
 
     expect(firestoreMock.get(bag.uid).name).toBe(newName);
@@ -29,7 +29,7 @@ describe('name', () => {
     expect(bag.name).toBe(basic_update_bag.name);
     expect(parent_changes_test.children![bag.uid].name).toBe(basic_update_bag.name);
 
-    const nameUpdate = bag.changeName(newName).commitChanges();
+    const nameUpdate = bag.changeName(newName).save();
 
     await lastValueFrom(nameUpdate);
 

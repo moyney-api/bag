@@ -2,7 +2,7 @@ import { Bag } from '../../../src/models/bag';
 import { FirestoreMock } from '../../__mocks/firestore.mock.spec';
 import { FAKE_BAG_DB } from '../../__mocks/mockDb';
 
-const firestoreMock = new FirestoreMock();
+const firestoreMock = new FirestoreMock(FAKE_BAG_DB);
 
 beforeEach(() => firestoreMock.reset());
 

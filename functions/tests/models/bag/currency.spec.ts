@@ -4,7 +4,7 @@ import { Currency } from '../../../src/models/currency';
 import { FirestoreMock } from '../../__mocks/firestore.mock.spec';
 import { FAKE_BAG_DB } from '../../__mocks/mockDb';
 
-const firestoreMock = new FirestoreMock();
+const firestoreMock = new FirestoreMock(FAKE_BAG_DB);
 firestoreMock.spyOnCurrConverter({ 'eur/usd': 2, 'usd/eur': 0.5 });
 
 beforeEach(() => firestoreMock.reset());
@@ -16,7 +16,7 @@ describe('currency', () => {
     const bag = new Bag(most_basic_bag);
     expect(firestoreMock.get(bag.uid).currency).toBe('BTC');
 
-    await lastValueFrom(bag.changeCurrency(Currency.Euro).commitChanges());
+    await lastValueFrom(bag.changeCurrency(Currency.Euro).save());
 
     expect(firestoreMock.get(bag.uid).currency).toBe('EUR');
   });
@@ -29,7 +29,7 @@ describe('currency', () => {
       expect(firestoreMock.get(double_nested_bag_2.uid).currency).toBe('EUR');
       expect(firestoreMock.get(single_nested_bag.uid).currency).toBe('EUR');
 
-      await lastValueFrom(bag.changeCurrency(Currency.USD).commitChanges());
+      await lastValueFrom(bag.changeCurrency(Currency.USD).save());
 
       expect(firestoreMock.get(bag.uid).currency).toBe('USD');
       expect(firestoreMock.get(double_nested_bag_2.uid).currency).toBe('USD');
@@ -39,7 +39,7 @@ describe('currency', () => {
     it('should update amounts and totals of children and grandchildren', async () => {
       const bag = new Bag(triple_nested_bag);
 
-      await lastValueFrom(bag.changeCurrency(Currency.USD).commitChanges());
+      await lastValueFrom(bag.changeCurrency(Currency.USD).save());
 
       expect(firestoreMock.get(bag.uid).amount).toBe(triple_nested_bag.amount * 2);
       expect(firestoreMock.get(double_nested_bag_2.uid).amount).toBe(double_nested_bag_2.amount * 2);
@@ -53,7 +53,7 @@ describe('currency', () => {
     expect(firestoreMock.get(bag.uid).currency).toBe('BTC');
 
     try {
-      await lastValueFrom(bag.changeCurrency('MOY' as Currency).commitChanges());
+      await lastValueFrom(bag.changeCurrency('MOY' as Currency).save());
     } catch (e) {
       expect(() => { throw e }).toThrow();
     }
@@ -63,7 +63,7 @@ describe('currency', () => {
     const bag = new Bag(double_nested_bag_2);
 
     try {
-      await lastValueFrom(bag.changeCurrency(Currency.USD).commitChanges());
+      await lastValueFrom(bag.changeCurrency(Currency.USD).save());
     } catch (e) {
       expect(() => { throw e }).toThrow();
     }

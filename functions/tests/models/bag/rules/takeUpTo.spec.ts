@@ -3,7 +3,7 @@ import { Bag } from '../../../../src/models/bag';
 import { FirestoreMock } from '../../../__mocks/firestore.mock.spec';
 import { FAKE_BAG_DB } from '../../../__mocks/mockDb';
 
-const firestoreMock = new FirestoreMock();
+const firestoreMock = new FirestoreMock(FAKE_BAG_DB);
 beforeEach(() => firestoreMock.reset());
 
 describe('Taking up to', () => {
@@ -14,7 +14,7 @@ describe('Taking up to', () => {
 
     expect(firestoreMock.get(bag.uid).amount).toBe(bag_take_with_limit.amount);
 
-    await lastValueFrom(bag.setAmount(bag.amount - 20).commitChanges());
+    await lastValueFrom(bag.setAmount(bag.amount - 20).save());
 
     expect(firestoreMock.get(bag.uid).amount).toBe(bag_take_with_limit.amount);
     expect(firestoreMock.get(most_basic_bag.uid).amount).toBe(most_basic_bag.amount - 20);
@@ -25,12 +25,12 @@ describe('Taking up to', () => {
 
     expect(firestoreMock.get(bag.uid).amount).toBe(bag_take_with_limit.amount)
 
-    await (lastValueFrom(bag.setAmount(bag.amount - 20).commitChanges()));
+    await (lastValueFrom(bag.setAmount(bag.amount - 20).save()));
 
     expect(firestoreMock.get(bag.uid).amount).toBe(bag_take_with_limit.amount);
     expect(firestoreMock.get(most_basic_bag.uid).amount).toBe(most_basic_bag.amount - 20);
 
-    await (lastValueFrom(bag.setAmount(bag.amount - 10).commitChanges()));
+    await (lastValueFrom(bag.setAmount(bag.amount - 10).save()));
 
     expect(firestoreMock.get(bag.uid).amount).toBe(bag_take_with_limit.amount - 10);
     expect(firestoreMock.get(most_basic_bag.uid).amount).toBe(most_basic_bag.amount - 20);
@@ -40,7 +40,7 @@ describe('Taking up to', () => {
     const bag = new Bag(bag_take_without_limit_property);
 
     try {
-      await (lastValueFrom(bag.setAmount(bag.amount + 100).commitChanges()));
+      await (lastValueFrom(bag.setAmount(bag.amount + 100).save()));
     } catch (e) {
       expect(() => { throw e }).toThrow();
     }

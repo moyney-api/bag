@@ -1,5 +1,9 @@
 export const changelog: Changelog = [
   {
+    version: '0.0.4',
+    techChanges: ['Improved firestore manager. Updated model to use new FSManager'],
+  },
+  {
     version: '0.0.3',
     changes: [
       'Rules now implemented. Automatic rule triggers available',

@@ -3,7 +3,7 @@ import { Bag } from '../../../../src/models/bag';
 import { FirestoreMock } from '../../../__mocks/firestore.mock.spec';
 import { FAKE_BAG_DB } from '../../../__mocks/mockDb';
 
-const firestoreMock = new FirestoreMock();
+const firestoreMock = new FirestoreMock(FAKE_BAG_DB);
 beforeEach(() => firestoreMock.reset());
 
 describe('Sending up to', () => {
@@ -14,7 +14,7 @@ describe('Sending up to', () => {
 
     expect(firestoreMock.get(bag.uid).amount).toBe(bag_send_with_limit.amount);
 
-    await lastValueFrom(bag.setAmount(bag.amount + 220).commitChanges());
+    await lastValueFrom(bag.setAmount(bag.amount + 220).save());
 
     expect(firestoreMock.get(bag.uid).amount).toBe(bag_send_with_limit.amount + 20);
     expect(firestoreMock.get(most_basic_bag.uid).amount).toBe(most_basic_bag.amount + 200);
@@ -25,13 +25,13 @@ describe('Sending up to', () => {
 
     expect(firestoreMock.get(bag.uid).amount).toBe(bag_send_with_limit.amount)
 
-    await (lastValueFrom(bag.setAmount(bag.amount + 100).commitChanges()));
-    await (lastValueFrom(bag.setAmount(bag.amount + 200).commitChanges()));
+    await (lastValueFrom(bag.setAmount(bag.amount + 100).save()));
+    await (lastValueFrom(bag.setAmount(bag.amount + 200).save()));
 
     expect(firestoreMock.get(bag.uid).amount).toBe(bag_send_with_limit.amount + 100);
     expect(firestoreMock.get(most_basic_bag.uid).amount).toBe(most_basic_bag.amount + 200);
 
-    await (lastValueFrom(bag.setAmount(bag.amount + 10).commitChanges()));
+    await (lastValueFrom(bag.setAmount(bag.amount + 10).save()));
 
     expect(firestoreMock.get(bag.uid).amount).toBe(bag_send_with_limit.amount + 110);
     expect(firestoreMock.get(most_basic_bag.uid).amount).toBe(most_basic_bag.amount + 200);
@@ -41,7 +41,7 @@ describe('Sending up to', () => {
     const bag = new Bag(bag_send_without_limit_property);
 
     try {
-      await (lastValueFrom(bag.setAmount(bag.amount - 100).commitChanges()));
+      await (lastValueFrom(bag.setAmount(bag.amount - 100).save()));
     } catch (e) {
       expect(() => { throw e }).toThrow();
     }

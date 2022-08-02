@@ -3,7 +3,7 @@ import { Bag } from '../../../src/models/bag';
 import { FirestoreMock } from '../../__mocks/firestore.mock.spec';
 import { FAKE_BAG_DB } from '../../__mocks/mockDb';
 
-const firestoreMock = new FirestoreMock();
+const firestoreMock = new FirestoreMock(FAKE_BAG_DB);
 
 beforeEach(() => firestoreMock.reset());
 
@@ -18,7 +18,7 @@ describe('Assign to bag', () => {
       expect(firestoreMock.get(double_nested_bag_2.uid).children![bag.uid]).toEqual({ name: bag.name, amount: bag.totalAmount });
       expect(firestoreMock.get(double_nested_bag_1.uid).children?.[bag.uid]).toBeUndefined();
 
-      await lastValueFrom(bag.assignToBag(double_nested_bag_1.uid).commitChanges());
+      await lastValueFrom(bag.assignToBag(double_nested_bag_1.uid).save());
 
       expect(firestoreMock.get(bag.uid).belongsTo).toBe(double_nested_bag_1.uid);
       expect(firestoreMock.get(double_nested_bag_2.uid).children![bag.uid]).toBeUndefined();
@@ -33,7 +33,7 @@ describe('Assign to bag', () => {
       const bag = new Bag(most_basic_bag);
       expect(firestoreMock.get(bag.uid).belongsTo).toBeUndefined();
 
-      await lastValueFrom(bag.assignToBag(parent_changes_test.uid).commitChanges());
+      await lastValueFrom(bag.assignToBag(parent_changes_test.uid).save());
 
       expect(firestoreMock.get(bag.uid).belongsTo).toBe(parent_changes_test.uid);
       expect(firestoreMock.get(parent_changes_test.uid).children![bag.uid]).toEqual({ name: bag.name, amount: bag.totalAmount });
@@ -46,7 +46,7 @@ describe('Assign to bag', () => {
     expect(firestoreMock.get(bag.uid).belongsTo).toBe(bag.belongsTo);
 
     try {
-      await lastValueFrom(bag.assignToBag('i-dont-exist').commitChanges());
+      await lastValueFrom(bag.assignToBag('i-dont-exist').save());
     } catch (e) {
       expect(() => { throw e }).toThrowError('User does not exist');
     }
@@ -57,7 +57,7 @@ describe('Assign to bag', () => {
     const bag = new Bag(single_nested_bag);
     expect(firestoreMock.get(bag.uid).belongsTo).toBe(bag.belongsTo);
 
-    await lastValueFrom(bag.assignToBag(undefined).commitChanges());
+    await lastValueFrom(bag.assignToBag(undefined).save());
 
     expect(firestoreMock.get(bag.uid).belongsTo).toBeUndefined();
   });
@@ -70,7 +70,7 @@ describe('Assign to bag', () => {
     expect(firestoreMock.get(most_basic_bag.uid).currency).toBe('BTC');
     expect(firestoreMock.get(single_nested_bag.uid).currency).toBe('EUR');
 
-    await lastValueFrom(bag.assignToBag(most_basic_bag.uid).commitChanges());
+    await lastValueFrom(bag.assignToBag(most_basic_bag.uid).save());
 
     expect(firestoreMock.get(double_nested_bag_2.uid).currency).toBe('BTC');
     expect(firestoreMock.get(most_basic_bag.uid).currency).toBe('BTC');

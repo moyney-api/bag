@@ -2,14 +2,14 @@ import { admin } from '../../src/firebase';
 import { BagData } from '../../src/models/bag';
 import { Currency } from '../../src/models/currency';
 import * as currencyExport from '../../src/models/currency';
-import { FAKE_BAG_DB } from './mockDb';
 import { of } from 'rxjs';
 
 export class FirestoreMock {
-  private db: typeof FAKE_BAG_DB = { bags: {} };
+  private db: { [db: string]: any };
   private fs = admin.firestore();
 
-  constructor() {
+  constructor(private readonly MOCK_DB_TO_USE: { [db: string]: any }) {
+    this.db = this.MOCK_DB_TO_USE;
     this.spyOnBatch();
     this.spyOnDoc();
     this.spyOnCollection();
@@ -20,7 +20,7 @@ export class FirestoreMock {
   }
 
   reset(): void {
-    this.db = this.deepCopy(FAKE_BAG_DB);
+    this.db = this.deepCopy(this.MOCK_DB_TO_USE);
   }
 
   spyOnCurrConverter = (options: { [conversion: string]: number }): jest.SpyInstance => {

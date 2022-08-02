@@ -3,7 +3,7 @@ import { Bag } from '../../../src/models/bag';
 import { FirestoreMock } from '../../__mocks/firestore.mock.spec';
 import { FAKE_BAG_DB } from '../../__mocks/mockDb';
 
-const firestoreMock = new FirestoreMock();
+const firestoreMock = new FirestoreMock(FAKE_BAG_DB);
 
 beforeEach(() => firestoreMock.reset());
 
@@ -16,7 +16,7 @@ describe('Set amount', () => {
 
     expect(bag.amount).toBe(basic_update_bag.amount);
 
-    await lastValueFrom(bag.setAmount(newAmount).commitChanges());
+    await lastValueFrom(bag.setAmount(newAmount).save());
 
     expect(firestoreMock.get(bag.uid).amount).toBe(newAmount);
   });
@@ -25,7 +25,7 @@ describe('Set amount', () => {
     const bag = new Bag(basic_update_bag);
     const newAmount = 500;
 
-    await lastValueFrom(bag.setAmount(newAmount).commitChanges());
+    await lastValueFrom(bag.setAmount(newAmount).save());
 
     expect(firestoreMock.get(parent_changes_test.uid).children!.basic_update_bag.amount).toBe(newAmount);
   });

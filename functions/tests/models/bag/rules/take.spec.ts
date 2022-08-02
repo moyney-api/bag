@@ -3,7 +3,7 @@ import { Bag } from '../../../../src/models/bag';
 import { FirestoreMock } from '../../../__mocks/firestore.mock.spec';
 import { FAKE_BAG_DB } from '../../../__mocks/mockDb';
 
-const firestoreMock = new FirestoreMock();
+const firestoreMock = new FirestoreMock(FAKE_BAG_DB);
 beforeEach(() => firestoreMock.reset());
 
 describe('Taking', () => {
@@ -14,7 +14,7 @@ describe('Taking', () => {
 
     expect(firestoreMock.get(bag.uid).amount).toBe(bag_takes_from_above_bag.amount);
 
-    await lastValueFrom(bag.setAmount(bag.amount - 5).commitChanges());
+    await lastValueFrom(bag.setAmount(bag.amount - 5).save());
 
     expect(firestoreMock.get(bag.uid).amount).toBe(bag_takes_from_above_bag.amount);
     expect(firestoreMock.get(bag_sends_all_to_most_basic.uid).amount).toBe(bag_sends_all_to_most_basic.amount - 5);
@@ -25,7 +25,7 @@ describe('Taking', () => {
 
     expect(firestoreMock.get(bag.uid).amount).toBe(bag_takes_fifty_percent.amount);
 
-    await lastValueFrom(bag.setAmount(bag.amount - 5).commitChanges());
+    await lastValueFrom(bag.setAmount(bag.amount - 5).save());
 
     expect(firestoreMock.get(bag.uid).amount).toBe(bag_takes_from_above_bag.amount - 2.5);
     expect(firestoreMock.get(bag_sends_all_to_most_basic.uid).amount).toBe(bag_sends_all_to_most_basic.amount - 2.5);
