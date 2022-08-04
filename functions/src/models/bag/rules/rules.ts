@@ -1,5 +1,5 @@
 import { concatMap, of, OperatorFunction } from 'rxjs';
-import { MoyFirestoreManager } from '~/firebase';
+import { MoyFirestoreManager } from 'moy-firebase-manager';
 import { Bag } from '../bag';
 import { BagRule, RuleActions } from './models';
 

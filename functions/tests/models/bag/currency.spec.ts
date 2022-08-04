@@ -1,11 +1,12 @@
 import { lastValueFrom } from 'rxjs';
 import { Bag } from '../../../src/models/bag';
 import { Currency } from '../../../src/models/currency';
-import { FirestoreMock } from '../../__mocks/firestore.mock.spec';
+import { MoyFirestoreMock } from 'moy-firebase-manager';
 import { FAKE_BAG_DB } from '../../__mocks/mockDb';
+import { spyOnCurrConverter } from '../../__mocks/utils.mock.spec';
 
-const firestoreMock = new FirestoreMock(FAKE_BAG_DB);
-firestoreMock.spyOnCurrConverter({ 'eur/usd': 2, 'usd/eur': 0.5 });
+const firestoreMock = new MoyFirestoreMock(FAKE_BAG_DB);
+spyOnCurrConverter({ 'eur/usd': 2, 'usd/eur': 0.5 });
 
 beforeEach(() => firestoreMock.reset());
 

@@ -1,9 +1,10 @@
 import { defer, map, Observable, of, tap } from 'rxjs';
-import { MoyFirestoreManager } from '../../firebase';
+import { MoyFirestoreManager } from 'moy-firebase-manager';
 import { Currency, priceOfFirstCurrInSecondCurr } from '../currency';
 import { BagData } from './models';
 import { BagRules } from './rules';
 import { RuleParser } from './rules/rules';
+import { admin } from '../../firebase';
 
 export class Bag implements BagData {
   uid: string;
@@ -18,7 +19,7 @@ export class Bag implements BagData {
   rules: BagRules = {};
   conversionRates: { [currency: string]: number } = {};
 
-  constructor(bag: BagData, private mfsm: MoyFirestoreManager = new MoyFirestoreManager('bags')) {
+  constructor(bag: BagData, private mfsm: MoyFirestoreManager = new MoyFirestoreManager(admin, 'bags')) {
     this.uid = bag.uid;
     this.userUid = bag.userUid;
     this.name = bag.name;
@@ -32,7 +33,7 @@ export class Bag implements BagData {
   }
 
   save = (): Observable<Bag> => {
-    return this.mfsm.commit().pipe(map(() => this));
+    return this.mfsm.commit({ dontCommitAndReturnExpression: true })!.pipe(map(() => this));
   }
 
   changeName = (newName: string): Bag => {

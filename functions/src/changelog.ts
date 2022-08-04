@@ -1,5 +1,9 @@
 export const changelog: Changelog = [
   {
+    version: '0.0.5',
+    techChanges: ['Firestore manager is now an external dependency'],
+  },
+  {
     version: '0.0.4',
     techChanges: ['Improved firestore manager. Updated model to use new FSManager'],
   },

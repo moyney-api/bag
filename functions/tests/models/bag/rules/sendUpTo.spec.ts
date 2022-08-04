@@ -1,9 +1,9 @@
 import { lastValueFrom } from 'rxjs';
 import { Bag } from '../../../../src/models/bag';
-import { FirestoreMock } from '../../../__mocks/firestore.mock.spec';
+import { MoyFirestoreMock } from 'moy-firebase-manager';
 import { FAKE_BAG_DB } from '../../../__mocks/mockDb';
 
-const firestoreMock = new FirestoreMock(FAKE_BAG_DB);
+const firestoreMock = new MoyFirestoreMock(FAKE_BAG_DB);
 beforeEach(() => firestoreMock.reset());
 
 describe('Sending up to', () => {
