@@ -1,20 +1,21 @@
 import { lastValueFrom } from 'rxjs';
 import { Bag } from '../../../src/models/bag';
 import { MoyFirestoreMock } from 'moy-firebase-manager';
-import { FAKE_BAG_DB } from '../../__mocks/mockDb';
+import { admin } from '../../../src/firebase';
+import FAKE_DB from '../../__mocks/dbs/models/amount.db';
 
-const firestoreMock = new MoyFirestoreMock(FAKE_BAG_DB);
+const firestoreMock = new MoyFirestoreMock({ bags: FAKE_DB }, admin.firestore());
 
 beforeEach(() => firestoreMock.reset());
 
-describe('Set amount', () => {
-  const { basic_update_bag, parent_changes_test } = FAKE_BAG_DB.bags;
+describe('setAmount', () => {
+  const { child_bag, parent_bag } = FAKE_DB;
 
   it('should update amount', async () => {
-    const bag = new Bag(basic_update_bag);
+    const bag = new Bag(child_bag);
     const newAmount = 300;
 
-    expect(bag.amount).toBe(basic_update_bag.amount);
+    expect(bag.amount).toBe(child_bag.amount);
 
     await lastValueFrom(bag.setAmount(newAmount).save());
 
@@ -22,11 +23,11 @@ describe('Set amount', () => {
   });
 
   it('should update parent amount', async () => {
-    const bag = new Bag(basic_update_bag);
+    const bag = new Bag(child_bag);
     const newAmount = 500;
 
     await lastValueFrom(bag.setAmount(newAmount).save());
 
-    expect(firestoreMock.get(parent_changes_test.uid).children!.basic_update_bag.amount).toBe(newAmount);
+    expect(firestoreMock.get(parent_bag.uid!).children!.child_bag.amount).toBe(newAmount);
   });
 });

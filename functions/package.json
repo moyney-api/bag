@@ -17,7 +17,7 @@
   "dependencies": {
     "firebase-admin": "^11.0.1",
     "firebase-functions": "^3.18.0",
-    "moy-firebase-manager": "^1.1.1",
+    "moy-firebase-manager": "^1.1.11",
     "rxjs": "^7.5.5"
   },
   "devDependencies": {

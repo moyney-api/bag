@@ -1,5 +1,11 @@
 export const changelog: Changelog = [
   {
+    version: '0.0.6',
+    changes: ['Bag controller set'],
+    techChanges: ['Testing included. Controller basic CRUD'],
+    knownIssues: ['Tech debt rises with files of over 200 lines'],
+  },
+  {
     version: '0.0.5',
     techChanges: ['Firestore manager is now an external dependency'],
   },

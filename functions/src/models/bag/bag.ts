@@ -1,39 +1,97 @@
 import { defer, map, Observable, of, tap } from 'rxjs';
-import { MoyFirestoreManager } from 'moy-firebase-manager';
+import { AfterCommitHistory, MoyFirestoreManager } from 'moy-firebase-manager';
 import { Currency, priceOfFirstCurrInSecondCurr } from '../currency';
 import { BagData } from './models';
-import { BagRules } from './rules';
 import { RuleParser } from './rules/rules';
 import { admin } from '../../firebase';
 
+export const DEFAULT_BAG_DATA: Required<Pick<BagData, 'children' | 'amount' | 'currency' | 'name' | 'received' | 'rules'>> = {
+  children: {},
+  amount: 0,
+  currency: Currency.Euro,
+  name: 'New bag',
+  received: {},
+  rules: {},
+};
+
 export class Bag implements BagData {
+  static fromId = (id: string): Observable<BagData> => {
+    const mfsm = new MoyFirestoreManager(admin, 'bags');
+    mfsm.readToQueue('uid', [id]);
+    return mfsm.commit().pipe(map(({ read }) => read[id]));
+  }
+  
+  static deleteFromId = (id: string): Observable<BagData> => {
+    const mfsm = new MoyFirestoreManager(admin, 'bags');
+    mfsm.readToQueue('uid', [id]);
+
+    mfsm.expressionToQueue(() => {
+      const bag = new Bag(mfsm.read(id) || {}, mfsm);
+      bag.destroy();
+    });
+
+    return mfsm.commit().pipe(map(() => mfsm.read(id)));
+  }
+
   uid: string;
   userUid: string;
   name: string;
   currency: Currency;
   amount: number;
-  received: BagData['received'];
+  rules: Required<BagData>['rules'];
+  received: Required<BagData>['received'];
+  children: Required<BagData>['children'];
+
   totalAmount: number;
-  children?: BagData['children'];
-  belongsTo?: string;
-  rules: BagRules = {};
   conversionRates: { [currency: string]: number } = {};
 
+  belongsTo?: string;
+
   constructor(bag: BagData, private mfsm: MoyFirestoreManager = new MoyFirestoreManager(admin, 'bags')) {
-    this.uid = bag.uid;
     this.userUid = bag.userUid;
-    this.name = bag.name;
-    this.currency = bag.currency;
-    this.amount = bag.amount;
-    this.rules = bag.rules || {};
-    this.received = bag.received || {};
-    this.children = bag.children;
+
+    this.uid = bag.uid || this.mfsm.newDoc();
+    this.name = bag.name || DEFAULT_BAG_DATA.name;
+    this.amount = bag.amount || DEFAULT_BAG_DATA.amount;
+    this.currency = bag.currency || DEFAULT_BAG_DATA.currency;
+    this.rules = bag.rules || DEFAULT_BAG_DATA.rules;
+    this.received = bag.received || DEFAULT_BAG_DATA.received;
+    this.children = bag.children || DEFAULT_BAG_DATA.children;
     this.belongsTo = bag.belongsTo;
     this.totalAmount = this.calcTotalAmount();
+
+    if (!bag.uid) {
+      this.mfsm.batchToQueue(this.uid, {
+        name: this.name,
+        userUid: this.userUid,
+        amount: this.amount,
+        currency: this.currency,
+        rules: this.rules,
+        received: this.received,
+        children: this.children,
+      });
+    }
   }
 
-  save = (): Observable<Bag> => {
-    return this.mfsm.commit({ dontCommitAndReturnExpression: true })!.pipe(map(() => this));
+  save = (): Observable<AfterCommitHistory> => {
+    return this.mfsm.commit();
+  }
+
+  destroy = (): void => {
+    const deleteExpression = () => {
+      if (this.belongsTo) {
+        this.mfsm.batchToQueue(this.belongsTo, { [`children.${this.uid}`]: undefined });
+      }
+      if (this.children) {
+        Object.keys(this.children).forEach(childId => {
+          this.mfsm.batchToQueue(childId, { belongsTo: undefined });
+        });
+      }
+
+      this.mfsm.deleteToQueue(this.uid);
+    }
+
+    this.mfsm.expressionToQueue(deleteExpression);
   }
 
   changeName = (newName: string): Bag => {
@@ -58,14 +116,14 @@ export class Bag implements BagData {
 
     this.mfsm.batchToQueue(this.uid, { currency: newCurrency }, () => {
       this.currency = newCurrency;
-      this.setAmount(this.amount * this.conversionRates[newCurrency]);
+      this.mfsm.expressionToQueue(() => this.setAmount(this.amount * this.conversionRates[newCurrency]));
     });
 
     return this;
   }
 
-  setAmount = (newAmount: number, from?: string): Bag => {
-    const difference = newAmount - this.amount;
+  setAmount = (newAmount?: number, from?: string): Bag => {
+    const difference = (newAmount || 0) - this.amount;
     this.triggerRulesOnDifference(difference);
 
     if (this.belongsTo) {
@@ -79,11 +137,13 @@ export class Bag implements BagData {
         bagChanges[`received.${from}`] = (this.received[from] || 0) + difference;
       }
 
-      return of(this.mfsm.batchToQueue(this.uid, bagChanges, () => {
-        if (from) this.received[from] = (this.received[from] || 0) + difference;
+      return this.mfsm.batchToQueue(this.uid, bagChanges, () => {
+        if (from) {
+          this.received[from] = (this.received[from] || 0) + difference;
+        }
         this.amount = this.amount + difference;
         this.totalAmount = this.calcTotalAmount();
-      }));
+      });
     };
 
     this.mfsm.expressionToQueue(awaitDiff);
@@ -97,7 +157,7 @@ export class Bag implements BagData {
     );
   }
 
-  assignToBag = (bagId: string | undefined): Bag => {
+  setBelongsTo = (bagId: string | undefined): Bag => {
     if (bagId) {
       this.assignToParentBag(bagId);
     }
@@ -112,7 +172,7 @@ export class Bag implements BagData {
   }
 
   setRules = (newRules: BagData['rules']): Bag => {
-    this.mfsm.batchToQueue(this.uid, { rules: newRules }, () => { this.rules = newRules });
+    this.mfsm.batchToQueue(this.uid, { rules: newRules }, () => { this.rules = newRules || {} });
 
     return this;
   }
@@ -152,11 +212,11 @@ export class Bag implements BagData {
     this.mfsm.readToQueue('uid', [bagId]);
 
     const updateBagCurrency = () => {
-      const parentBag = this.mfsm.doc(bagId);
-
-      if (!parentBag) {
-        throw new Error('User does not exist');
+      if (!this.mfsm.read(bagId)) {
+        throw new Error('Target bag does not exist');
       }
+
+      const parentBag = new Bag(this.mfsm.read(bagId));
 
       if (parentBag.currency !== this.currency) {
         this.changeCurrency(parentBag.currency, true);
@@ -174,12 +234,12 @@ export class Bag implements BagData {
 
     childrenUids.forEach(childUid => {
       const childUpdate = () => {
-        const childBag = new Bag(this.mfsm.doc(childUid), this.mfsm);
+        const childBag = new Bag(this.mfsm.read(childUid), this.mfsm);
         childBag.conversionRates = this.conversionRates;
         childBag.changeCurrency(newCurrency, true);
       };
       const childSideEffect = () => {
-        this.children![childUid].amount *= this.conversionRates[newCurrency];
+        this.children![childUid].amount! *= this.conversionRates[newCurrency];
       };
 
       this.mfsm.expressionToQueue(childUpdate, childSideEffect);
@@ -204,6 +264,6 @@ export class Bag implements BagData {
   }
 
   private childrenSumAmount(): number {
-    return Object.values(this.children || {}).reduce((total, childBag) => total += childBag.amount, 0);
+    return Object.values(this.children).reduce((total, childBag) => total += childBag.amount!, 0);
   }
 }

@@ -20,7 +20,7 @@ abstract class RuleAction {
   addToBatchAmountToPass(amountToPass: number, from?: string): void {
     if (amountToPass !== 0) {
       this.mfsm.expressionToQueue(() => {
-        const targetBag = new Bag(this.mfsm.doc(this.target), this.mfsm);
+        const targetBag = new Bag(this.mfsm.read(this.target), this.mfsm);
         targetBag.setAmount(targetBag.amount + amountToPass, from);
       });
     }
@@ -51,7 +51,7 @@ class SendUpTo extends RuleAction {
     }
 
     return concatMap((leftover: number) => {
-      const targetHasReceived = this.mfsm.doc(this.target).received[this.parentBag.uid] || 0;
+      const targetHasReceived = this.mfsm.read(this.target).received[this.parentBag.uid] || 0;
       const constrainedLimit = this.limit - targetHasReceived;
       const amountToPass = constrainedLimit > leftover ? leftover : constrainedLimit;
 
@@ -86,7 +86,7 @@ class TakeUpTo extends RuleAction {
     }
 
     return concatMap((leftover: number = 0) => {
-      const targetHasReceived = this.mfsm.doc(this.target).received[this.parentBag.uid] || 0;
+      const targetHasReceived = this.mfsm.read(this.target).received[this.parentBag.uid] || 0;
       const constrainedLimit = this.limit + targetHasReceived;
       const amountToPass = constrainedLimit > leftover ? leftover : constrainedLimit;
 

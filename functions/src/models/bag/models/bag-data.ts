@@ -2,13 +2,13 @@ import { Currency } from '~/models/currency';
 import { BagRules } from '../rules/models';
 
 export interface BagData {
-  uid: string;
   userUid: string;
-  name: string;
-  currency: Currency;
-  amount: number;
-  rules /*Rules*/: BagRules;
-  received: { [fromBagId: string]: number };
-  children?: { [id: string]: Pick<BagData, 'name' | 'amount'> };
+  uid?: string;
+  name?: string;
+  amount?: number;
+  currency?: Currency;
+  rules?: BagRules;
   belongsTo?: string;
+  received?: { [fromBagId: string]: number };
+  children?: { [id: string]: Pick<BagData, 'name' | 'amount'> };
 }
