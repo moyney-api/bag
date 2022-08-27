@@ -1,5 +1,18 @@
 export const changelog: Changelog = [
   {
+    version: '1.0.0',
+    changes: [
+      'Routes added',
+      'First working version for Bag api'
+    ],
+    techChanges: [
+      'Bag endpoints now added, serving several services at the same time is now possible'  
+    ],
+    knownIssues: [
+      'Tests are broken now, but because implementation of mock was incorrect. Has to update it'
+    ]
+  },
+  {
     version: '0.0.6',
     changes: ['Bag controller set'],
     techChanges: ['Testing included. Controller basic CRUD'],

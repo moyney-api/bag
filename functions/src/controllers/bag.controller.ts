@@ -5,7 +5,11 @@ import { Bag, BagData } from '../models';
 export class BagController {
   constructor(private userUid: string) {}
 
-  get(uid: string): Observable<BagData> {
+  get(uid: string): Observable<BagData | BagData[]> {
+    if (!uid) {
+      return Bag.allBags(this.userUid);
+    }
+
     return Bag.fromId(uid);
   }
 

@@ -1,5 +1,6 @@
 {
-  "name": "functions",
+  "author": "gavaar",
+  "name": "bag",
   "scripts": {
     "lint": "eslint --ext .js,.ts .",
     "build": "concurrently --kill-others \"tsc -w\" \"tsc-alias -w\"",
@@ -17,7 +18,7 @@
   "dependencies": {
     "firebase-admin": "^11.0.1",
     "firebase-functions": "^3.18.0",
-    "moy-firebase-manager": "^1.1.11",
+    "moy-firebase-manager": "^1.1.18",
     "rxjs": "^7.5.5"
   },
   "devDependencies": {

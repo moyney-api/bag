@@ -4,6 +4,9 @@ import { Currency, priceOfFirstCurrInSecondCurr } from '../currency';
 import { BagData } from './models';
 import { RuleParser } from './rules/rules';
 import { admin } from '../../firebase';
+import { allBags, fromId, deleteFromId } from './static';
+
+export const BAG_ROUTE = 'bags';
 
 export const DEFAULT_BAG_DATA: Required<Pick<BagData, 'children' | 'amount' | 'currency' | 'name' | 'received' | 'rules'>> = {
   children: {},
@@ -15,23 +18,9 @@ export const DEFAULT_BAG_DATA: Required<Pick<BagData, 'children' | 'amount' | 'c
 };
 
 export class Bag implements BagData {
-  static fromId = (id: string): Observable<BagData> => {
-    const mfsm = new MoyFirestoreManager(admin, 'bags');
-    mfsm.readToQueue('uid', [id]);
-    return mfsm.commit().pipe(map(({ read }) => read[id]));
-  }
-  
-  static deleteFromId = (id: string): Observable<BagData> => {
-    const mfsm = new MoyFirestoreManager(admin, 'bags');
-    mfsm.readToQueue('uid', [id]);
-
-    mfsm.expressionToQueue(() => {
-      const bag = new Bag(mfsm.read(id) || {}, mfsm);
-      bag.destroy();
-    });
-
-    return mfsm.commit().pipe(map(() => mfsm.read(id)));
-  }
+  static fromId = fromId;
+  static allBags = allBags;
+  static deleteFromId = deleteFromId;
 
   uid: string;
   userUid: string;
@@ -47,7 +36,7 @@ export class Bag implements BagData {
 
   belongsTo?: string;
 
-  constructor(bag: BagData, private mfsm: MoyFirestoreManager = new MoyFirestoreManager(admin, 'bags')) {
+  constructor(bag: BagData, private mfsm: MoyFirestoreManager = new MoyFirestoreManager(admin, BAG_ROUTE)) {
     this.userUid = bag.userUid;
 
     this.uid = bag.uid || this.mfsm.newDoc();
