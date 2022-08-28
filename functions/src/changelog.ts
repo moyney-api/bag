@@ -3,14 +3,14 @@ export const changelog: Changelog = [
     version: '1.0.0',
     changes: [
       'Routes added',
-      'First working version for Bag api'
+      'First working version for Bag api',
     ],
     techChanges: [
-      'Bag endpoints now added, serving several services at the same time is now possible'  
+      'Bag endpoints now added, serving several services at the same time is now possible',
     ],
     knownIssues: [
-      'Tests are broken now, but because implementation of mock was incorrect. Has to update it'
-    ]
+      'Tests are broken now, but because implementation of mock was incorrect. Has to update it',
+    ],
   },
   {
     version: '0.0.6',
@@ -37,7 +37,7 @@ export const changelog: Changelog = [
     knownIssues: [
       'Firebase manager needs rethinking and rework',
       'Rule logic and bag logic is flaky. Lots of rigidity and complexity',
-    ]
+    ],
   },
   {
     version: '0.0.2',
@@ -49,7 +49,7 @@ export const changelog: Changelog = [
   {
     version: '0.0.1',
     techChanges: ['Initialized repo'],
-  }
+  },
 ];
 
 interface ChangelogVersion {

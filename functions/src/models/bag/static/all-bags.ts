@@ -8,4 +8,4 @@ export const allBags = (userUid: string): Observable<BagData[]> => {
   const mfsm = new MoyFirestoreManager(admin, BAG_ROUTE);
   mfsm.readToQueue('userUid', [userUid]);
   return mfsm.commit().pipe(map(({ read }) => Object.values(read)));
-}
+};

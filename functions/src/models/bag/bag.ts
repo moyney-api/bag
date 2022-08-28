@@ -64,7 +64,7 @@ export class Bag implements BagData {
 
   save = (): Observable<AfterCommitHistory> => {
     return this.mfsm.commit();
-  }
+  };
 
   destroy = (): void => {
     const deleteExpression = () => {
@@ -78,10 +78,10 @@ export class Bag implements BagData {
       }
 
       this.mfsm.deleteToQueue(this.uid);
-    }
+    };
 
     this.mfsm.expressionToQueue(deleteExpression);
-  }
+  };
 
   changeName = (newName: string): Bag => {
     if (this.belongsTo) {
@@ -90,7 +90,7 @@ export class Bag implements BagData {
 
     this.mfsm.batchToQueue(this.uid, { name: newName }, () => this.name = newName);
     return this;
-  }
+  };
 
   changeCurrency = (newCurrency: Currency, force = false): Bag => {
     if (this.belongsTo && !force) {
@@ -109,14 +109,16 @@ export class Bag implements BagData {
     });
 
     return this;
-  }
+  };
 
   setAmount = (newAmount?: number, from?: string): Bag => {
     const difference = (newAmount || 0) - this.amount;
     this.triggerRulesOnDifference(difference);
 
     if (this.belongsTo) {
-      this.mfsm.batchToQueue(this.belongsTo, { [`children.${this.uid}`]: { name: this.name, amount: this.amount + difference + this.childrenSumAmount() } });
+      this.mfsm.batchToQueue(this.belongsTo, {
+        [`children.${this.uid}`]: { name: this.name, amount: this.amount + difference + this.childrenSumAmount() },
+      });
     }
 
     const awaitDiff = () => {
@@ -138,13 +140,13 @@ export class Bag implements BagData {
     this.mfsm.expressionToQueue(awaitDiff);
 
     return this;
-  }
+  };
 
   amountInCurrency = (currency: Currency): Observable<{ amount: number; to: Currency; from: Currency }> => {
     return this.currencyConversionRate(currency).pipe(
       map((price) => ({ amount: price * this.amount, to: currency, from: this.currency })),
     );
-  }
+  };
 
   setBelongsTo = (bagId: string | undefined): Bag => {
     if (bagId) {
@@ -155,16 +157,16 @@ export class Bag implements BagData {
       this.mfsm.batchToQueue(this.belongsTo, { [`children.${this.uid}`]: undefined });
     }
 
-    this.mfsm.batchToQueue(this.uid, { belongsTo: bagId }, () => { this.belongsTo = bagId });
+    this.mfsm.batchToQueue(this.uid, { belongsTo: bagId }, () => { this.belongsTo = bagId; });
 
     return this;
-  }
+  };
 
   setRules = (newRules: BagData['rules']): Bag => {
-    this.mfsm.batchToQueue(this.uid, { rules: newRules }, () => { this.rules = newRules || {} });
+    this.mfsm.batchToQueue(this.uid, { rules: newRules }, () => { this.rules = newRules || {}; });
 
     return this;
-  }
+  };
 
   private triggerRulesOnDifference(difference: number): void {
     const { oi, oo, oov } = this.rules;
@@ -186,7 +188,7 @@ export class Bag implements BagData {
       const ruleExpression = defer(() => of(-1 * difference).pipe(
         ...(ruleParser.parseRules() as []),
         tap(left => this.amount -= (difference + left)),
-      ))
+      ));
 
       this.mfsm.expressionToQueue(ruleExpression);
 
@@ -215,10 +217,10 @@ export class Bag implements BagData {
     };
 
     this.mfsm.expressionToQueue(updateBagCurrency);
-  }
+  };
 
   private changeChildrenCurrencies = (newCurrency: Currency): void => {
-    const childrenUids = Object.keys(this.children!);
+    const childrenUids = Object.keys(this.children);
     this.mfsm.readToQueue('uid', childrenUids);
 
     childrenUids.forEach(childUid => {
@@ -228,12 +230,12 @@ export class Bag implements BagData {
         childBag.changeCurrency(newCurrency, true);
       };
       const childSideEffect = () => {
-        this.children![childUid].amount! *= this.conversionRates[newCurrency];
+        this.children[childUid].amount = (this.children[childUid].amount || 0) * this.conversionRates[newCurrency];
       };
 
       this.mfsm.expressionToQueue(childUpdate, childSideEffect);
     });
-  }
+  };
 
   private currencyConversionRate(currency: Currency): Observable<number> {
     const cachedData = this.conversionRates[currency];
@@ -253,6 +255,6 @@ export class Bag implements BagData {
   }
 
   private childrenSumAmount(): number {
-    return Object.values(this.children).reduce((total, childBag) => total += childBag.amount!, 0);
+    return Object.values(this.children).reduce((total, childBag) => total += childBag.amount || 0, 0);
   }
 }

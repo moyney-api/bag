@@ -14,4 +14,4 @@ export const deleteFromId = (id: string): Observable<BagData> => {
   });
 
   return mfsm.commit().pipe(map(() => mfsm.read(id)));
-}
+};

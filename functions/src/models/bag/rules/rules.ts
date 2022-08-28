@@ -4,7 +4,7 @@ import { Bag } from '../bag';
 import { BagRule, RuleActions } from './models';
 
 abstract class RuleAction {
-  protected limit: number = Infinity;
+  protected limit = Infinity;
   protected limitUnit?: string;
 
   constructor(limitCode: string, protected target: string, protected parentBag: Bag, protected mfsm: MoyFirestoreManager) {
@@ -63,7 +63,7 @@ class SendUpTo extends RuleAction {
 
 class Take extends RuleAction {
   getRuleStep(): OperatorFunction<number, number> {
-    return concatMap((leftover: number = 0) => {
+    return concatMap((leftover = 0) => {
       let amountToTake = 0;
 
       if (this.limitUnit === '%') {
@@ -85,7 +85,7 @@ class TakeUpTo extends RuleAction {
       throw new Error('Rule tu2 cannot have an empty limit rule');
     }
 
-    return concatMap((leftover: number = 0) => {
+    return concatMap((leftover = 0) => {
       const targetHasReceived = this.mfsm.read(this.target).received[this.parentBag.uid] || 0;
       const constrainedLimit = this.limit + targetHasReceived;
       const amountToPass = constrainedLimit > leftover ? leftover : constrainedLimit;
@@ -123,7 +123,7 @@ export class RuleParser {
   }
 
   private ruleActionFromCode(actionCode: string): new (...args: [string, string, Bag, MoyFirestoreManager]) => RuleAction {
-    switch(actionCode.split('a:')[1]) {
+    switch (actionCode.split('a:')[1]) {
       case RuleActions.Send:
         return Send;
       case RuleActions.SendUpTo:
